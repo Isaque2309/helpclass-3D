@@ -52,9 +52,21 @@
   .btn.atender:hover{background:#15803d}
   .namebox{padding:4px 12px 8px}
   .namebox input{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 11px;font:inherit;font-size:13px;background:#fff}
-  #popPort{display:none;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 12px 8px}
+  #popPort{display:none;grid-template-columns:repeat(3,1fr);gap:6px}
   #popPort.show{display:grid}
-  #popPort button{border:0;border-radius:10px;padding:9px 4px;font-size:12px;font-weight:700}
+  #popPort{background:#f6f7f8;border:1px solid var(--line);border-radius:14px;margin:0 12px 8px;padding:12px 8px 10px}
+  #popPort .nota{padding:0 4px}
+  #popPort button.sb{display:flex;flex-direction:column;align-items:center;gap:7px;border:0;background:none;padding:2px 0;border-radius:12px;color:inherit}
+  .sb .led{width:11px;height:11px;border-radius:50%;background:var(--c);box-shadow:0 0 0 2px rgba(15,23,42,.08),0 0 9px 2px var(--c);transition:box-shadow .15s}
+  .sb .cap{width:62px;height:62px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--cl) 0,var(--c) 55%,var(--cd) 100%);border:6px solid #14161a;box-shadow:0 3px 6px rgba(0,0,0,.35),inset 0 -4px 6px rgba(0,0,0,.25),inset 0 3px 4px rgba(255,255,255,.35);transition:transform .08s,box-shadow .08s}
+  .sb .rot{display:block;min-width:92px;padding:6px 8px;border-radius:9px;font-size:11.5px;font-weight:700;background:var(--c);color:var(--t);line-height:1.1;white-space:nowrap}
+  .sb:hover .cap{transform:scale(1.07)}
+  .sb:hover .led{box-shadow:0 0 0 2px rgba(15,23,42,.08),0 0 14px 4px var(--c)}
+  .sb:active .cap{transform:scale(.93) translateY(2px);box-shadow:0 1px 2px rgba(0,0,0,.35),inset 0 4px 8px rgba(0,0,0,.35)}
+  .sb:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+  .sb.e{--c:#e0353b;--cl:#ff6b6f;--cd:#a8171c;--t:#fff}
+  .sb.c{--c:#f6c61a;--cl:#ffe66b;--cd:#c79a00;--t:#1b1b1b}
+  .sb.a{--c:#1c6fd6;--cl:#5aa2ff;--cd:#0e4a9c;--t:#fff}
   .tabs{display:flex;border-bottom:1px solid var(--line);padding:0 8px}
   .tabs button{flex:1;background:none;border:0;border-bottom:3px solid transparent;padding:10px 4px;font-size:13px;font-weight:700;color:var(--mut)}
   .tabs button.on{color:var(--txt);border-bottom-color:var(--pri)}
@@ -160,9 +172,9 @@
   </div>
   <div id="popPort">
     <div class="nota" style="grid-column:1/-1">O botão portátil vai chamar em:</div><select id="selSala"></select>
-    <button data-tp="emergencia" style="background:#e53935;color:#fff">🔴 Emergência</button>
-    <button data-tp="coordenacao" style="background:#fbc02d;color:#3b2f00">🟡 Coordenação</button>
-    <button data-tp="apoio" style="background:#1e88e5;color:#fff">🔵 Apoio</button>
+    <button class="sb e" data-tp="emergencia" title="Saúde, briga ou risco à segurança"><span class="led"></span><span class="cap"></span><span class="rot">Emergência</span></button>
+    <button class="sb c" data-tp="coordenacao" title="Disciplina, conflito ou acompanhamento pedagógico"><span class="led"></span><span class="cap"></span><span class="rot">Coordenação</span></button>
+    <button class="sb a" data-tp="apoio" title="Limpeza, manutenção, suporte técnico ou materiais"><span class="led"></span><span class="cap"></span><span class="rot">Apoio Técnico</span></button>
   </div>
   <div class="namebox"><input id="nome" type="text" placeholder="Seu nome (quem vai atender)" maxlength="30"></div>
   <nav class="tabs">
@@ -362,13 +374,14 @@ admin.forEach(function(a){ plano(a.cx,a.cz,a.w-0.3,a.d-0.3,a.cor,0.03); });
 })();
 
 // ---------- paredes ----------
+const paredesLista = []; // usada para impedir clique/hover através das paredes
 function parede(x1,z1,x2,z2,h){
   h = h || 1.3;
   const len = Math.hypot(x2-x1, z2-z1); if (len < 0.05) return;
   const m = new THREE.Mesh(boxG(len,h,0.25), matParede);
   m.position.set((x1+x2)/2, h/2, (z1+z2)/2);
   m.rotation.y = -Math.atan2(z2-z1, x2-x1);
-  m.castShadow = true; m.receiveShadow = true; scene.add(m);
+  m.castShadow = true; m.receiveShadow = true; scene.add(m); paredesLista.push(m);
 }
 function paredeH(z, x1, x2, portas){ // parede horizontal com vãos de porta
   let ini = x1;
@@ -422,27 +435,111 @@ salas.forEach(function(s){
   const moldura = new THREE.Mesh(boxG(3.6,0.06,0.1), mat(0xd6d3d1)); moldura.position.set(s.cx,0.38,s.doorZ+dir*6.8); scene.add(moldura);
 });
 
-// ---------- dispositivo de 3 botões (um por sala) ----------
-const botoes = []; // meshes clicáveis
-salas.forEach(function(s){
-  const px = s.cx + 2.6, pz = s.doorZ + s.dir*1.0;
-  const g = new THREE.Group(); g.position.set(px,0,pz);
-  const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.14,1.0,16), mat(0x475569)); ped.position.y = 0.5; ped.castShadow = true; g.add(ped);
-  const console_ = new THREE.Group(); console_.position.y = 1.08; console_.rotation.x = 0.25; g.add(console_);
-  const corpo = new THREE.Mesh(boxG(1.5,0.14,0.62), mat(0x1e293b,{roughness:0.5})); corpo.castShadow = true; console_.add(corpo);
+// ---------- dispositivo SINALIZA (um por sala, fixado na parede ao lado da porta) ----------
+const botoes = []; // áreas de toque dos botões (clicáveis)
+const DV = { W:1.40, H:0.968, R:0.07, BS:0.02, BT:0.02, DEP:0.07, ESC:1.1, DX:0.42, Y_BTN:-0.082, Y_LED:0.09, Y_CENTRO:0.72 };
+const DV_FRENTE = DV.DEP + DV.BT;   // z da face frontal do corpo
+const DV_ZF = DV_FRENTE + 0.004;    // z onde assentam aros, LEDs, botões e parafusos
+function formaArred(w,h,r){
+  const x = -w/2, y = -h/2, f = new THREE.Shape();
+  f.moveTo(x+r,y); f.lineTo(x+w-r,y); f.quadraticCurveTo(x+w,y,x+w,y+r);
+  f.lineTo(x+w,y+h-r); f.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  f.lineTo(x+r,y+h); f.quadraticCurveTo(x,y+h,x,y+h-r);
+  f.lineTo(x,y+r); f.quadraticCurveTo(x,y,x+r,y);
+  return f;
+}
+function texturaPlaca(){
+  const W = 1024, H = 708, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d'), FONTE = '"Segoe UI","Helvetica Neue",Arial,sans-serif';
+  function ajusta(txt, peso, larg, max){ let s = max; for (; s > 14; s -= 2){ c.font = peso+' '+s+'px '+FONTE; if (c.measureText(txt).width <= larg) break; } c.font = peso+' '+s+'px '+FONTE; }
+  function pilula(x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r); c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h); c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r); c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y); c.closePath(); }
+  c.fillStyle = '#f6f7f8'; c.fillRect(0,0,W,H);
+  // sino
+  c.save(); c.translate(295,132); c.scale(1.5,1.5); c.fillStyle = '#16181d'; c.strokeStyle = '#16181d';
+  c.beginPath(); c.moveTo(-42,34); c.lineTo(42,34); c.quadraticCurveTo(30,28,28,6); c.bezierCurveTo(26,-18,14,-30,0,-30);
+  c.bezierCurveTo(-14,-30,-26,-18,-28,6); c.quadraticCurveTo(-30,28,-42,34); c.closePath(); c.fill();
+  c.beginPath(); c.arc(0,-34,5,0,Math.PI*2); c.fill();
+  c.beginPath(); c.arc(0,38,9,0,Math.PI); c.fill();
+  c.lineWidth = 6; c.lineCap = 'round';
+  [52,68].forEach(function(r){ c.beginPath(); c.arc(0,-6,r,-1.05,-0.25); c.stroke(); c.beginPath(); c.arc(0,-6,r,Math.PI+0.25,Math.PI+1.05); c.stroke(); });
+  c.restore();
+  // títulos
+  c.textBaseline = 'middle'; c.textAlign = 'left'; c.fillStyle = '#14181f';
+  ajusta('SINALIZA','800',375,100); c.fillText('SINALIZA',460,124);
+  c.fillStyle = '#1f2630'; ajusta('Comunicação Escolar','600',375,48); c.fillText('Comunicação Escolar',460,190);
+  c.fillStyle = '#1d2433'; c.fillRect(73,232,892,3);
+  // rótulos coloridos sob os botões
+  const rot = { emergencia:['Emergência','#e0353b','#ffffff'], coordenacao:['Coordenação','#f6c61a','#1b1b1b'], apoio:['Apoio Técnico','#1c6fd6','#ffffff'] };
+  c.textAlign = 'center';
+  ORDEM.forEach(function(k,i){
+    const cx = 512 + (i-1)*307, d = rot[k];
+    c.fillStyle = d[1]; pilula(cx-131,525,262,92,22); c.fill();
+    c.fillStyle = d[2]; ajusta(d[0],'700',222,44); c.fillText(d[0],cx,572);
+  });
+  const t = new THREE.CanvasTexture(cv);
+  t.encoding = THREE.sRGBEncoding; t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return t;
+}
+// recursos compartilhados por todos os dispositivos
+const dvGeoCorpo = new THREE.ExtrudeGeometry(formaArred(DV.W,DV.H,DV.R), { depth:DV.DEP, bevelEnabled:true, bevelThickness:DV.BT, bevelSize:DV.BS, bevelSegments:3, curveSegments:10 });
+const dvGeoFace = new THREE.ShapeGeometry(formaArred(DV.W,DV.H,DV.R), 10);
+(function(){ const p = dvGeoFace.attributes.position, uv = dvGeoFace.attributes.uv;
+  for (let i=0;i<p.count;i++) uv.setXY(i, (p.getX(i)+DV.W/2)/DV.W, (p.getY(i)+DV.H/2)/DV.H);
+  uv.needsUpdate = true; })();
+const dvMatCorpo = mat(0xe4e8ec,{ roughness:0.5 });
+const dvMatFace = new THREE.MeshStandardMaterial({ map:texturaPlaca(), color:0xe9e9e9, roughness:0.55, metalness:0, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2 });
+const dvGeoAro = new THREE.CylinderGeometry(0.115,0.115,0.03,32);
+const dvMatAro = mat(0x14161a,{ roughness:0.45 });
+const dvGeoCap = new THREE.LatheGeometry([[0,0],[0.094,0],[0.094,0.03],[0.088,0.045],[0.07,0.056],[0.04,0.06],[0,0.061]].map(function(p){ return new THREE.Vector2(p[0],p[1]); }), 36);
+const dvGeoLed = new THREE.SphereGeometry(0.036,16,10,0,Math.PI*2,0,Math.PI/2);
+const dvGeoParafuso = new THREE.CylinderGeometry(0.03,0.03,0.014,16);
+const dvMatParafuso = mat(0xaab2ba,{ metalness:0.5, roughness:0.4 });
+const dvGeoHit = new THREE.CylinderGeometry(0.19,0.19,0.08,16);
+const dvMatHit = new THREE.MeshBasicMaterial({ visible:false });
+const dvGeoHaste = new THREE.CylinderGeometry(0.04,0.04,0.34,10);
+const dvMatHaste = mat(0x64748b);
+
+// monta o aparelho dentro do grupo g (origem no centro da placa, frente voltada para +z)
+function montarAparelho(g, sala){
+  const corpo = new THREE.Mesh(dvGeoCorpo, dvMatCorpo); corpo.castShadow = true; g.add(corpo);
+  const face = new THREE.Mesh(dvGeoFace, dvMatFace); face.position.z = DV_FRENTE + 0.003; g.add(face);
+  // peça apoiada na face: pivô girado para que o eixo local Y aponte para fora da parede
+  function pivo(x,y){ const p = new THREE.Group(); p.position.set(x,y,DV_ZF); p.rotation.x = Math.PI/2; g.add(p); return p; }
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(function(q){
+    const p = pivo(q[0]*0.62, q[1]*0.41), m = new THREE.Mesh(dvGeoParafuso, dvMatParafuso); m.position.y = 0.007; p.add(m);
+  });
   const lista = [];
   ORDEM.forEach(function(tipo,i){
-    const t = TIPOS[tipo];
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.19,0.14,28),
-      new THREE.MeshStandardMaterial({ color:t.hex, emissive:t.hex, emissiveIntensity:0.12, roughness:0.4 }));
-    m.position.set((i-1)*0.48, 0.13, 0);
-    m.userData = { roomId:s.id, tipo:tipo, baseY:0.13, press:0 };
-    m.castShadow = true; console_.add(m); lista.push(m); botoes.push(m);
+    const t = TIPOS[tipo], x = (i-1)*DV.DX;
+    // LED indicador acima do botão
+    const ledMat = new THREE.MeshStandardMaterial({ color:new THREE.Color(t.hex).multiplyScalar(0.6), emissive:t.hex, emissiveIntensity:0.9, roughness:0.35 });
+    pivo(x, DV.Y_LED).add(new THREE.Mesh(dvGeoLed, ledMat));
+    // aro preto + botão (cúpula colorida) + área de toque invisível
+    const p = pivo(x, DV.Y_BTN);
+    const aro = new THREE.Mesh(dvGeoAro, dvMatAro); aro.position.y = 0.015; p.add(aro);
+    const cap = new THREE.Mesh(dvGeoCap, new THREE.MeshStandardMaterial({ color:new THREE.Color(t.hex).multiplyScalar(0.7), emissive:t.hex, emissiveIntensity:0.12, roughness:0.3, side:THREE.DoubleSide }));
+    cap.position.y = 0.005; cap.userData = { roomId:sala ? sala.id : null, tipo:tipo, baseY:0.005, press:0, ledMat:ledMat };
+    p.add(cap); lista.push(cap);
+    if (sala){
+      const hit = new THREE.Mesh(dvGeoHit, dvMatHit); hit.position.y = 0.03; hit.userData = { cap:cap };
+      p.add(hit); botoes.push(hit);
+    }
   });
-  const matBeacon = new THREE.MeshStandardMaterial({ color:0x9aa5b1, emissive:0x000000, emissiveIntensity:0, roughness:0.3 });
-  const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.2,20,16), matBeacon); beacon.position.y = 1.75; g.add(beacon);
+  return lista;
+}
+
+salas.forEach(function(s){
+  const px = s.cx + 2.3, faceZ = s.doorZ + 0.125; // face da parede voltada para +z (sempre visível pela câmera principal)
+  const g = new THREE.Group();
+  g.position.set(px, DV.Y_CENTRO, faceZ + DV.BT*DV.ESC); // costas encostadas na parede
+  g.scale.setScalar(DV.ESC);
+  const lista = montarAparelho(g, s);
   scene.add(g);
-  s.dev = { x:px, z:pz, botoes:lista, beaconMat:matBeacon };
+  // luz repetidora no topo da parede (aparece na visão geral)
+  const matBeacon = new THREE.MeshStandardMaterial({ color:0x9aa5b1, emissive:0x000000, emissiveIntensity:0, roughness:0.3 });
+  const haste = new THREE.Mesh(dvGeoHaste, dvMatHaste); haste.position.set(px,1.47,s.doorZ); scene.add(haste);
+  const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.24,24,18), matBeacon); beacon.position.set(px,1.8,s.doorZ); scene.add(beacon);
+  s.dev = { x:px, z:faceZ + 0.35, botoes:lista, beaconMat:matBeacon };
 });
 
 // ---------- TVs / painéis nas áreas de atendimento ----------
@@ -606,7 +703,7 @@ function firePortatil(loc, tipo){
 (function(){
   const sel = $('#selSala');
   sel.innerHTML = Object.keys(LOCS).map(function(k){ return '<option value="'+k+'">'+esc(LOCS[k].nome)+'</option>'; }).join('')+'<option value="mapa">📍 Escolher ponto no mapa…</option>';
-  try { sel.value = localStorage.getItem('chamadaEscola.sala') || '106'; } catch(e){} if (!sel.value) sel.value = '106';
+  try { sel.value = localStorage.getItem('chamadaEscola.sala') || '106'; } catch(e){} if (!sel.value) sel.selectedIndex = 0;
   sel.addEventListener('change', function(){ try { localStorage.setItem('chamadaEscola.sala', sel.value); } catch(e){} });
 })();
 
@@ -679,31 +776,91 @@ function sinal(o, tipo){
 //  SOM (Web Audio) — um padrão por categoria
 // ===========================================================
 let sonsAtivos = [];
+let mestre = null, reverbIn = null;
 function garantirAudio(){
   if (!audioCtx){ try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ audioCtx = null; } }
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  if (audioCtx && !mestre) montarMestre();
 }
-function tom(freq, ini, dur, tipo, vol, freq2){
-  const t0 = audioCtx.currentTime + ini;
-  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-  o.type = tipo; o.frequency.setValueAtTime(freq, t0);
-  if (freq2) o.frequency.linearRampToValueAtTime(freq2, t0+dur);
-  g.gain.setValueAtTime(0.0001, t0);
-  g.gain.exponentialRampToValueAtTime(vol, t0+0.02);
-  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
-  o.connect(g); g.connect(audioCtx.destination);
-  o.onended = function(){ const i = sonsAtivos.indexOf(o); if (i >= 0) sonsAtivos.splice(i,1); };
-  sonsAtivos.push(o);
-  o.start(t0); o.stop(t0+dur+0.05);
+// cadeia de saída: compressor (volume uniforme, sem estourar) + reverb curto de corredor
+function montarMestre(){
+  const ac = audioCtx;
+  mestre = ac.createGain(); mestre.gain.value = 0.9;
+  const comp = ac.createDynamicsCompressor();
+  comp.threshold.value = -16; comp.knee.value = 18; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
+  mestre.connect(comp); comp.connect(ac.destination);
+  const len = Math.floor(ac.sampleRate*0.9), ir = ac.createBuffer(2,len,ac.sampleRate);
+  for (let c=0;c<2;c++){ const d = ir.getChannelData(c); for (let i=0;i<len;i++) d[i] = (Math.random()*2-1)*Math.pow(1-i/len,2.6); }
+  const conv = ac.createConvolver(); conv.buffer = ir;
+  reverbIn = ac.createGain(); reverbIn.gain.value = 0.22;
+  reverbIn.connect(conv); conv.connect(mestre);
+}
+// uma nota: vários parciais (timbre), ataque/decaimento suaves (sem estalos) e filtro passa-baixa
+function nota(f, ini, dur, o){
+  o = o || {};
+  const ac = audioCtx, t0 = ac.currentTime + ini + 0.01;
+  const vol = o.vol || 0.2, atk = o.atk || 0.008, parc = o.parc || [[1,1]], tipo = o.tipo || 'sine';
+  const env = ac.createGain(), filt = ac.createBiquadFilter();
+  filt.type = 'lowpass'; filt.frequency.value = o.corte || 5000; filt.Q.value = 0.5;
+  env.gain.setValueAtTime(0, t0);
+  env.gain.linearRampToValueAtTime(vol, t0+atk);
+  let fim;
+  if (o.sustenta){ // nota sustentada (alarme)
+    env.gain.setValueAtTime(vol, t0+Math.max(atk, dur-0.06)); env.gain.linearRampToValueAtTime(0, t0+dur); fim = t0+dur+0.05;
+  } else {         // decaimento natural (sino / pluck)
+    env.gain.setTargetAtTime(0, t0+atk, dur/4.5); fim = t0+dur*1.7;
+  }
+  env.connect(filt); filt.connect(mestre);
+  if (o.reverb !== 0){ const s = ac.createGain(); s.gain.value = o.reverb || 1; filt.connect(s); s.connect(reverbIn); }
+  parc.forEach(function(p){
+    const osc = ac.createOscillator(), g = ac.createGain();
+    osc.type = tipo; osc.frequency.setValueAtTime(f*p[0], t0); g.gain.value = p[1];
+    osc.connect(g); g.connect(env);
+    osc.onended = function(){ const i = sonsAtivos.indexOf(osc); if (i >= 0) sonsAtivos.splice(i,1); };
+    sonsAtivos.push(osc); osc.start(t0); osc.stop(fim);
+  });
+}
+// "clique" mecânico do botão: estalo curto + toque grave
+function cliqueBotao(){
+  const ac = audioCtx, t0 = ac.currentTime + 0.005, len = Math.floor(ac.sampleRate*0.03);
+  const buf = ac.createBuffer(1,len,ac.sampleRate), d = buf.getChannelData(0);
+  for (let i=0;i<len;i++) d[i] = (Math.random()*2-1)*Math.pow(1-i/len,3);
+  const s = ac.createBufferSource(); s.buffer = buf;
+  const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2200; bp.Q.value = 0.9;
+  const g = ac.createGain(); g.gain.value = 0.45;
+  s.connect(bp); bp.connect(g); g.connect(mestre); s.start(t0);
+  nota(140, 0, 0.09, { vol:0.28, atk:0.002, reverb:0 });
 }
 function pararSons(){
   sonsAtivos.splice(0).forEach(function(o){ try { o.stop(); } catch(e){} });
 }
-function tocarSom(tipo){
+// um som próprio para cada botão
+function tocarSom(tipo, semClique){
   if (!somLigado || document.hidden) return; garantirAudio(); if (!audioCtx) return;
-  if (tipo === 'emergencia'){ for (let i=0;i<3;i++){ tom(600,i*0.5,0.25,'sawtooth',0.12,1000); tom(1000,i*0.5+0.25,0.25,'sawtooth',0.12,600); } }
-  else if (tipo === 'coordenacao'){ tom(880,0,0.12,'square',0.07); tom(880,0.22,0.12,'square',0.07); }
-  else { tom(520,0,0.32,'sine',0.14); }
+  if (!semClique) cliqueBotao();
+  const off = 0.06;
+  if (tipo === 'emergencia'){
+    // alarme "pi-pó" urgente, grave de impacto e 3 repetições
+    const alarme = { tipo:'triangle', parc:[[1,1],[2,0.35],[3,0.12]], vol:0.26, sustenta:true, corte:4200, atk:0.01, reverb:0.6 };
+    for (let i=0;i<3;i++){
+      const b = off + i*0.62;
+      nota(880, b, 0.26, alarme); nota(659.25, b+0.28, 0.26, alarme);
+      nota(110, b, 0.2, { vol:0.2, atk:0.004, reverb:0 });
+    }
+  } else if (tipo === 'coordenacao'){
+    // "ding-dong" de sino, duas vezes
+    const sino = { parc:[[1,1],[2.01,0.45],[2.76,0.3],[4.07,0.12]], vol:0.2, atk:0.003, corte:7000 };
+    for (let i=0;i<2;i++){
+      const b = off + i*1.3, v = i ? 0.7 : 1;
+      nota(783.99, b, 1.1, Object.assign({}, sino, { vol:sino.vol*v }));
+      nota(587.33, b+0.42, 1.4, Object.assign({}, sino, { vol:sino.vol*v }));
+    }
+  } else {
+    // apoio: arpejo ascendente suave (notificação)
+    const pluck = { parc:[[1,1],[2,0.25]], vol:0.24, atk:0.004, corte:4500 };
+    [523.25, 659.25, 783.99].forEach(function(f,i){ nota(f, off+i*0.13, 0.35, pluck); });
+    nota(1046.5, off+0.39, 0.7, pluck);
+  }
 }
 
 // ===========================================================
@@ -752,6 +909,13 @@ const ndc = new THREE.Vector2();
 const planoChao = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
 let hover = null;
 const tooltip = $('#tooltip');
+function acertarBotao(){ // botão sob o mouse (ignora os que estão atrás de paredes)
+  const hit = raycaster.intersectObjects(botoes, false)[0];
+  if (!hit) return null;
+  const bloq = raycaster.intersectObjects(paredesLista, false)[0];
+  if (bloq && bloq.distance < hit.distance - 0.02) return null;
+  return hit.object.userData.cap;
+}
 
 function coordsNDC(ev){
   const r = renderer.domElement.getBoundingClientRect();
@@ -766,8 +930,7 @@ renderer.domElement.addEventListener('pointermove', function(ev){
     movePend = false; if (!ultimoEv || ultimoEv.buttons) { hover = null; tooltip.style.display = 'none'; return; }
     if (modoPortatil){ renderer.domElement.style.cursor = 'crosshair'; return; }
     coordsNDC(ultimoEv);
-    const hit = raycaster.intersectObjects(botoes, false)[0];
-    hover = hit ? hit.object : null; sujo = 3;
+    hover = acertarBotao(); sujo = 3;
     renderer.domElement.style.cursor = hover ? 'pointer' : 'grab';
     if (hover){
       const t = TIPOS[hover.userData.tipo], s = salas.find(function(x){ return x.id === hover.userData.roomId; });
@@ -791,19 +954,23 @@ renderer.domElement.addEventListener('pointerup', function(ev){
     if (p.x < -22 || p.x > 30 || p.z < -14 || p.z > 28){ toast('Escolha um ponto mais perto da escola.'); return; }
     colocarPortatil(p.x, p.z, modoPortatil); cancelarPortatil(); return;
   }
-  const hit = raycaster.intersectObjects(botoes, false)[0];
-  if (hit){
-    const b = hit.object; b.userData.press = 1;
-    disparar(b.userData.roomId, b.userData.tipo);
-  }
+  const b = acertarBotao();
+  if (b){ b.userData.press = 1; disparar(b.userData.roomId, b.userData.tipo); }
 });
 
 // ---------- botão portátil ----------
 function colocarPortatil(x,z,tipo){
   const t = TIPOS[tipo], g = new THREE.Group(); g.position.set(x,0,z);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.32,0.5,20), mat(0x1e293b)); base.position.y = 0.25; base.castShadow = true; g.add(base);
-  const topo = new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.14,20), new THREE.MeshStandardMaterial({ color:t.hex, emissive:t.hex, emissiveIntensity:0.9 })); topo.position.y = 0.56; g.add(topo);
-  const farol = new THREE.Mesh(new THREE.SphereGeometry(0.16,16,12), new THREE.MeshBasicMaterial({ color:t.hex })); farol.position.y = 1.1; g.add(farol);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.46,0.08,28), mat(0x1e293b)); base.position.y = 0.04; base.castShadow = true; g.add(base);
+  const haste = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.74,12), dvMatHaste); haste.position.set(0,0.45,0.03); haste.castShadow = true; g.add(haste);
+  const d = new THREE.Group(); d.position.y = 1.2; d.scale.setScalar(0.85); g.add(d);
+  montarAparelho(d, null).forEach(function(cap){
+    const ativo = cap.userData.tipo === tipo;
+    cap.position.y = cap.userData.baseY - (ativo ? 0.02 : 0);
+    cap.material.emissiveIntensity = ativo ? 0.9 : 0.05;
+    cap.userData.ledMat.emissiveIntensity = ativo ? 1.8 : 0.25;
+  });
+  const farol = new THREE.Mesh(new THREE.SphereGeometry(0.2,20,16), new THREE.MeshBasicMaterial({ color:t.hex })); farol.position.y = 2.05; g.add(farol);
   scene.add(g); renderer.shadowMap.needsUpdate = true; sujo = 3;
   disparar('portatil-'+Date.now(), tipo, { portatil:{ x:x, z:z }, label:nomePortatil(x,z), marker:g });
 }
@@ -1104,13 +1271,14 @@ function animar(){
     s.dev.botoes.forEach(function(b){
       const ligado = !!chaves[s.id+'|'+b.userData.tipo];
       b.material.emissiveIntensity = ligado ? 0.6+0.8*pulso : (b === hover ? 0.55 : 0.12);
+      b.userData.ledMat.emissiveIntensity = ligado ? 1.1+1.0*pulso : (b === hover ? 1.4 : 0.9);
       if (b.userData.press > 0) sujo = 3;
       b.userData.press = Math.max(0, b.userData.press - dt*4);
       const sc = b === hover ? 1.12 : 1; b.scale.set(sc,1,sc);
-      b.position.y = b.userData.baseY - 0.06*b.userData.press - (ligado ? 0.03 : 0);
+      b.position.y = b.userData.baseY - 0.014*b.userData.press - (ligado ? 0.006 : 0);
     });
   });
-  ativos.forEach(function(c){ if (c.marker){ const s = 1 + 0.12*pulso; c.marker.scale.set(s,1,s); } });
+  ativos.forEach(function(c){ if (c.marker){ const s = 1 + 0.12*pulso; c.marker.scale.set(s,s,s); } });
   for (let i=fx.length-1;i>=0;i--){ if (!fx[i].update(dt)) fx.splice(i,1); }
   let fm = false; figuras.forEach(function(f){ if (f.update(dt)) fm = true; });
   const camMudou = controls.update();
@@ -1138,7 +1306,7 @@ setInterval(function(){
   const antes = calls.length;
   calls = calls.filter(function(c){ return c.status === 'ativa' || agora - c.attendedAt < 30000; });
   if (calls.length !== antes) mudou = true;
-  calls.forEach(function(c){ if (c.status === 'ativa' && c.tipo === 'emergencia' && (c.repetiu || 0) < 2 && agora - c.lastSom > 20000){ c.lastSom = agora; c.repetiu = (c.repetiu || 0) + 1; tocarSom('emergencia'); } });
+  calls.forEach(function(c){ if (c.status === 'ativa' && c.tipo === 'emergencia' && (c.repetiu || 0) < 2 && agora - c.lastSom > 20000){ c.lastSom = agora; c.repetiu = (c.repetiu || 0) + 1; tocarSom('emergencia', true); } });
   if (mudou) renderFila();
 }, 1000);
 
